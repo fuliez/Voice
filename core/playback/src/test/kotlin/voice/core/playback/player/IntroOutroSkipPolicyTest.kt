@@ -60,13 +60,13 @@ class IntroOutroSkipPolicyTest {
 
   @Test
   fun `P08 files covered by the configuration play completely`() {
-    // The maximum configurable total is 2 * 120s, so a two minute file can be covered completely.
-    val exactlyCovered = IntroOutroSkipConfig(introSeconds = 60, outroSeconds = 60)
-    val overCovered = IntroOutroSkipConfig(introSeconds = 120, outroSeconds = 120)
+    // The maximum configurable total is 2 * 60s, so a one minute file can be covered completely.
+    val exactlyCovered = IntroOutroSkipConfig(introSeconds = 30, outroSeconds = 30)
+    val overCovered = IntroOutroSkipConfig(introSeconds = 60, outroSeconds = 60)
 
-    for (position in listOf(0L, 1L, 119_999L, 120_000L)) {
-      assertEquals(IntroOutroSkipDecision.None, decide(position, exactlyCovered, durationMs = 120_000))
-      assertEquals(IntroOutroSkipDecision.None, decide(position, overCovered, durationMs = 120_000))
+    for (position in listOf(0L, 1L, 59_999L, 60_000L)) {
+      assertEquals(IntroOutroSkipDecision.None, decide(position, exactlyCovered, durationMs = 60_000))
+      assertEquals(IntroOutroSkipDecision.None, decide(position, overCovered, durationMs = 60_000))
     }
     assertEquals(
       IntroOutroSkipDecision.None,
@@ -90,10 +90,10 @@ class IntroOutroSkipPolicyTest {
     val config = IntroOutroSkipConfig(introSeconds = -5, outroSeconds = 400)
 
     assertEquals(0L, config.introMs)
-    assertEquals(120_000L, config.outroMs)
-    assertEquals(IntroOutroSkipDecision.None, decide(479_999, config))
-    assertEquals(IntroOutroSkipDecision.SkipOutro, decide(480_000, config))
-    assertEquals(120_000L, IntroOutroSkipConfig(999, 0).introMs)
+    assertEquals(60_000L, config.outroMs)
+    assertEquals(IntroOutroSkipDecision.None, decide(539_999, config))
+    assertEquals(IntroOutroSkipDecision.SkipOutro, decide(540_000, config))
+    assertEquals(60_000L, IntroOutroSkipConfig(999, 0).introMs)
   }
 
   @Test

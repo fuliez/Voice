@@ -184,15 +184,15 @@ class VoicePlayerIntroOutroSkipTest {
 
   @Test
   fun `skips an intro that spans multiple marks at once`() = runTest {
-    val harness = IntroOutroHarness(scope = backgroundScope, introSeconds = 120, outroSeconds = 15)
+    val harness = IntroOutroHarness(scope = backgroundScope, introSeconds = 60, outroSeconds = 15)
     harness.setBook(listOf(chapter(durationMs = 600_000, marks = listOf(0L, 30_000))))
     harness.awaitReady()
     harness.loadSkipConfig()
 
     harness.play()
 
-    // The intro ends 120s into the file, which is 90s into the second mark.
-    harness.player.shouldBeAt(mediaItemIndex = 1, positionMs = 90_000)
+    // The intro ends 60s into the file, which is 30s into the second mark.
+    harness.player.shouldBeAt(mediaItemIndex = 1, positionMs = 30_000)
     assertTrue(harness.player.playWhenReady)
   }
 
@@ -322,7 +322,7 @@ class VoicePlayerIntroOutroSkipTest {
 
   @Test
   fun `end of chapter sleep timer stops an intro correction that crosses a mark`() = runTest {
-    val harness = IntroOutroHarness(scope = backgroundScope, introSeconds = 120, outroSeconds = 15)
+    val harness = IntroOutroHarness(scope = backgroundScope, introSeconds = 60, outroSeconds = 15)
     harness.setBook(listOf(chapter(durationMs = 600_000, marks = listOf(0L, 30_000))))
     harness.awaitReady()
     harness.loadSkipConfig()
@@ -330,7 +330,7 @@ class VoicePlayerIntroOutroSkipTest {
 
     harness.play()
 
-    harness.player.shouldBeAt(mediaItemIndex = 1, positionMs = 90_000)
+    harness.player.shouldBeAt(mediaItemIndex = 1, positionMs = 30_000)
     assertFalse(harness.player.playWhenReady)
     assertEquals(SleepTimerState.Disabled, harness.sleepTimer.state.value)
   }
@@ -527,12 +527,13 @@ class VoicePlayerIntroOutroSkipTest {
     harness.awaitReady()
     harness.loadSkipConfig()
     harness.playForReal()
-    harness.player.seekTo(0, 60_000)
+    harness.player.seekTo(0, 30_000)
     harness.settlePlayback()
     harness.suppressPlayback()
 
     val position = harness.player.currentPosition
-    harness.skipIntroStore.updateData { 120 }
+    // 30s is inside the intro once 60s are configured.
+    harness.skipIntroStore.updateData { 60 }
     runCurrent()
 
     assertEquals(expected = position, actual = harness.player.currentPosition)
@@ -545,15 +546,15 @@ class VoicePlayerIntroOutroSkipTest {
     harness.awaitReady()
     harness.loadSkipConfig()
     harness.playForReal()
-    harness.player.seekTo(0, 500_000)
+    harness.player.seekTo(0, 560_000)
     harness.settlePlayback()
     harness.suppressPlayback()
 
-    // 500s is inside the outro once 120s are configured.
-    harness.skipOutroStore.updateData { 120 }
+    // 560s is inside the outro once 60s are configured.
+    harness.skipOutroStore.updateData { 60 }
     runCurrent()
 
-    harness.player.shouldBeAt(mediaItemIndex = 0, positionMs = 500_000)
+    harness.player.shouldBeAt(mediaItemIndex = 0, positionMs = 560_000)
   }
 
   @Test
@@ -563,12 +564,12 @@ class VoicePlayerIntroOutroSkipTest {
     harness.awaitReady()
     harness.loadSkipConfig()
     harness.playForReal()
-    harness.player.seekTo(0, 500_000)
+    harness.player.seekTo(0, 560_000)
     harness.settlePlayback()
     harness.suppressPlayback()
-    harness.skipOutroStore.updateData { 120 }
+    harness.skipOutroStore.updateData { 60 }
     runCurrent()
-    harness.player.shouldBeAt(mediaItemIndex = 0, positionMs = 500_000)
+    harness.player.shouldBeAt(mediaItemIndex = 0, positionMs = 560_000)
 
     harness.resumePlayback()
 

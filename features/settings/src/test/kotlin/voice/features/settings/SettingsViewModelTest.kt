@@ -262,7 +262,7 @@ class SettingsViewModelTest {
       viewModel.viewState()
     }.test {
       var state = awaitItem()
-      while (state.skipIntroInSeconds != 0 || state.skipOutroInSeconds != 120) {
+      while (state.skipIntroInSeconds != 0 || state.skipOutroInSeconds != 60) {
         state = awaitItem()
       }
     }
@@ -296,13 +296,13 @@ class SettingsViewModelTest {
     }.test {
       awaitItem()
 
-      viewModel.skipIntroAmountChanged(120)
+      viewModel.skipIntroAmountChanged(45)
 
       awaitItem().let {
-        assertEquals(expected = 120, actual = it.skipIntroInSeconds)
+        assertEquals(expected = 45, actual = it.skipIntroInSeconds)
         assertEquals(expected = 0, actual = it.skipOutroInSeconds)
       }
-      assertEquals(expected = 120, actual = skipIntroSecondsStore.currentValue)
+      assertEquals(expected = 45, actual = skipIntroSecondsStore.currentValue)
       assertEquals(expected = 0, actual = skipOutroSecondsStore.currentValue)
     }
   }
@@ -314,14 +314,14 @@ class SettingsViewModelTest {
     }.test {
       awaitItem()
 
-      viewModel.skipOutroAmountChanged(90)
+      viewModel.skipOutroAmountChanged(45)
 
       awaitItem().let {
         assertEquals(expected = 0, actual = it.skipIntroInSeconds)
-        assertEquals(expected = 90, actual = it.skipOutroInSeconds)
+        assertEquals(expected = 45, actual = it.skipOutroInSeconds)
       }
       assertEquals(expected = 0, actual = skipIntroSecondsStore.currentValue)
-      assertEquals(expected = 90, actual = skipOutroSecondsStore.currentValue)
+      assertEquals(expected = 45, actual = skipOutroSecondsStore.currentValue)
     }
   }
 
@@ -332,7 +332,7 @@ class SettingsViewModelTest {
     runCurrent()
 
     assertEquals(expected = 0, actual = skipIntroSecondsStore.currentValue)
-    assertEquals(expected = 120, actual = skipOutroSecondsStore.currentValue)
+    assertEquals(expected = 60, actual = skipOutroSecondsStore.currentValue)
   }
 }
 
