@@ -238,6 +238,14 @@
     <string name="settings.playback.auto_rewind.title">Auto rewind</string>
     <!-- Title for the setting that controls skip-forward and rewind duration. -->
     <string name="settings.playback.seek_time.title">Skip amount</string>
+    <!-- Title for the global intro skip setting. -->
+    <string name="settings.playback.skip_intro.title">Skip intro</string>
+    <!-- Suffix of the numeric input for a duration in seconds. -->
+    <string name="settings.playback.skip_intro_outro.input_label">Seconds</string>
+    <!-- Explanation shown in the intro and outro skip dialogs. -->
+    <string name="settings.playback.skip_intro_outro.summary">Applies to all audio files. Set to 0 seconds to turn off.</string>
+    <!-- Title for the global outro skip setting. -->
+    <string name="settings.playback.skip_outro.title">Skip outro</string>
     <!-- Settings support row for opening the FAQ. -->
     <string name="settings.support.faq.title">FAQ</string>
     <!-- Settings support row for getting help. -->

@@ -80,6 +80,10 @@
     <string name="settings.library.use_grid.title">使用网格布局</string>
     <string name="settings.playback.auto_rewind.title">自动回退</string>
     <string name="settings.playback.seek_time.title">跳过时间</string>
+    <string name="settings.playback.skip_intro.title">跳过片头</string>
+    <string name="settings.playback.skip_intro_outro.input_label">秒</string>
+    <string name="settings.playback.skip_intro_outro.summary">适用于所有音频文件，0 秒表示关闭。</string>
+    <string name="settings.playback.skip_outro.title">跳过片尾</string>
     <string name="settings.support.get_support.title">寻求支持</string>
     <string name="settings.support.help_translating.title">帮助翻译</string>
     <string name="settings.support.report_issue.title">报告问题</string>

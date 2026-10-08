@@ -9,6 +9,8 @@ data class SettingsViewState(
   val themeColorScheme: ThemeColorScheme,
   val showThemeColorSchemePref: Boolean,
   val seekTimeInSeconds: Int,
+  val skipIntroInSeconds: Int,
+  val skipOutroInSeconds: Int,
   val autoRewindInSeconds: Int,
   val appVersion: String,
   val dialog: Dialog?,
@@ -24,6 +26,8 @@ data class SettingsViewState(
   enum class Dialog {
     AutoRewindAmount,
     SeekTime,
+    SkipIntro,
+    SkipOutro,
     Theme,
     ColorScheme,
   }
@@ -35,6 +39,8 @@ data class SettingsViewState(
         themeColorScheme = ThemeColorScheme.VoiceBlue,
         showThemeColorSchemePref = true,
         seekTimeInSeconds = 42,
+        skipIntroInSeconds = 30,
+        skipOutroInSeconds = 15,
         autoRewindInSeconds = 12,
         dialog = null,
         appVersion = "1.2.3",

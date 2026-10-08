@@ -105,6 +105,26 @@ public interface StoreModule {
 
   @Provides
   @SingleIn(AppScope::class)
+  @SkipIntroSecondsStore
+  private fun skipIntroSeconds(factory: VoiceDataStoreFactory): DataStore<Int> {
+    return factory.int(
+      fileName = "skipIntroSeconds",
+      defaultValue = 0,
+    )
+  }
+
+  @Provides
+  @SingleIn(AppScope::class)
+  @SkipOutroSecondsStore
+  private fun skipOutroSeconds(factory: VoiceDataStoreFactory): DataStore<Int> {
+    return factory.int(
+      fileName = "skipOutroSeconds",
+      defaultValue = 0,
+    )
+  }
+
+  @Provides
+  @SingleIn(AppScope::class)
   @SleepTimerPreferenceStore
   private fun sleepTimerPreference(factory: VoiceDataStoreFactory): DataStore<SleepTimerPreference> {
     return factory.create(

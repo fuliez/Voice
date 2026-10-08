@@ -64,6 +64,8 @@ class VoicePlayerTest {
 
   private val seekTimeStore = MemoryDataStore(2)
   private val autoRewindAmountStore = MemoryDataStore(2)
+  private val skipIntroSecondsStore = MemoryDataStore(0)
+  private val skipOutroSecondsStore = MemoryDataStore(0)
 
   private val internalPlayer = TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
     .setMediaSourceFactory(
@@ -105,6 +107,8 @@ class VoicePlayerTest {
     },
     seekTimeStore = seekTimeStore,
     autoRewindAmountStore = autoRewindAmountStore,
+    skipIntroSecondsStore = skipIntroSecondsStore,
+    skipOutroSecondsStore = skipOutroSecondsStore,
     scope = scope,
     mediaItemProvider = mediaItemProvider,
     volumeGain = mockk(relaxed = true),
@@ -112,8 +116,20 @@ class VoicePlayerTest {
     analytics = mockk(relaxed = true),
   )
 
+  /**
+   * Runs the test on [scope] and releases the player afterwards, which cancels the long-lived jobs
+   * [VoicePlayer] starts on that scope. The service does the same when it shuts down.
+   */
+  private fun voicePlayerTest(body: suspend TestScope.() -> Unit) = scope.runTest {
+    try {
+      body()
+    } finally {
+      player.release()
+    }
+  }
+
   @Test
-  fun `seekToNext does not clip`() = scope.runTest {
+  fun `seekToNext does not clip`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -153,7 +169,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `seekToPrevious does not clip`() = scope.runTest {
+  fun `seekToPrevious does not clip`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -192,7 +208,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `forceSeekToNext jumps to chapters`() = scope.runTest {
+  fun `forceSeekToNext jumps to chapters`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -224,7 +240,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `forceSeekToPrevious jumps to chapters`() = scope.runTest {
+  fun `forceSeekToPrevious jumps to chapters`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -257,7 +273,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `forceSeekToPrevious jumps to previous chapter when in the 2s window`() = scope.runTest {
+  fun `forceSeekToPrevious jumps to previous chapter when in the 2s window`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -285,7 +301,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `setBook resumes inside matching chapter mark`() = scope.runTest {
+  fun `setBook resumes inside matching chapter mark`() = voicePlayerTest {
     val chapter = chapter(
       ChapterMark(startMs = 0, endMs = 11_999, name = null),
       ChapterMark(startMs = 12_000, endMs = 20_000, name = null),
@@ -303,7 +319,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `end of chapter sleep timer pauses at start of next chapter mark`() = scope.runTest {
+  fun `end of chapter sleep timer pauses at start of next chapter mark`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -325,7 +341,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `end of chapter sleep timer pauses at start of normal file chapter`() = scope.runTest {
+  fun `end of chapter sleep timer pauses at start of normal file chapter`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(ChapterMark(startMs = 0, endMs = 1_000, name = null)),
@@ -345,7 +361,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `auto rewind clamps to current chapter start`() = scope.runTest {
+  fun `auto rewind clamps to current chapter start`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(
@@ -383,7 +399,7 @@ class VoicePlayerTest {
   }
 
   @Test
-  fun `forceSeekToPrevious jumps to chapter start when outside the 2s window`() = scope.runTest {
+  fun `forceSeekToPrevious jumps to chapter start when outside the 2s window`() = voicePlayerTest {
     setMediaItems(
       listOf(
         chapter(

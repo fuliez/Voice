@@ -154,6 +154,18 @@ private fun Settings(
       }
 
       item {
+        SkipIntroRow(viewState.skipIntroInSeconds) {
+          listener.onSkipIntroRowClick()
+        }
+      }
+
+      item {
+        SkipOutroRow(viewState.skipOutroInSeconds) {
+          listener.onSkipOutroRowClick()
+        }
+      }
+
+      item {
         AutoRewindRow(viewState.autoRewindInSeconds) {
           listener.onAutoRewindRowClick()
         }
@@ -355,6 +367,20 @@ private fun Dialog(
       SeekAmountDialog(
         currentSeconds = viewState.seekTimeInSeconds,
         onSecondsConfirm = listener::seekAmountChanged,
+        onDismiss = listener::dismissDialog,
+      )
+    }
+    SettingsViewState.Dialog.SkipIntro -> {
+      SkipIntroAmountDialog(
+        currentSeconds = viewState.skipIntroInSeconds,
+        onSecondsConfirm = listener::skipIntroAmountChanged,
+        onDismiss = listener::dismissDialog,
+      )
+    }
+    SettingsViewState.Dialog.SkipOutro -> {
+      SkipOutroAmountDialog(
+        currentSeconds = viewState.skipOutroInSeconds,
+        onSecondsConfirm = listener::skipOutroAmountChanged,
         onDismiss = listener::dismissDialog,
       )
     }

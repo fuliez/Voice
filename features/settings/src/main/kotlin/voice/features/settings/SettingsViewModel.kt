@@ -19,12 +19,15 @@ import voice.core.common.MainScope
 import voice.core.data.GridMode
 import voice.core.data.ThemeColorScheme
 import voice.core.data.ThemeMode
+import voice.core.data.coerceToIntroOutroSkipSeconds
 import voice.core.data.sleeptimer.SleepTimerPreference
 import voice.core.data.store.AnalyticsConsentStore
 import voice.core.data.store.AutoRewindAmountStore
 import voice.core.data.store.DeveloperMenuUnlockedStore
 import voice.core.data.store.GridModeStore
 import voice.core.data.store.SeekTimeStore
+import voice.core.data.store.SkipIntroSecondsStore
+import voice.core.data.store.SkipOutroSecondsStore
 import voice.core.data.store.SleepTimerPreferenceStore
 import voice.core.data.store.ThemeColorSchemeStore
 import voice.core.data.store.ThemeModeStore
@@ -46,6 +49,10 @@ class SettingsViewModel(
   private val autoRewindAmountStore: DataStore<Int>,
   @SeekTimeStore
   private val seekTimeStore: DataStore<Int>,
+  @SkipIntroSecondsStore
+  private val skipIntroSecondsStore: DataStore<Int>,
+  @SkipOutroSecondsStore
+  private val skipOutroSecondsStore: DataStore<Int>,
   private val navigator: Navigator,
   private val appInfoProvider: AppInfoProvider,
   @GridModeStore
@@ -75,6 +82,8 @@ class SettingsViewModel(
     val themeColorScheme by remember { themeColorSchemeStore.data }.collectAsState(initial = ThemeColorScheme.VoiceBlue)
     val autoRewindAmount by remember { autoRewindAmountStore.data }.collectAsState(initial = 0)
     val seekTime by remember { seekTimeStore.data }.collectAsState(initial = 0)
+    val skipIntroSeconds by remember { skipIntroSecondsStore.data }.collectAsState(initial = 0)
+    val skipOutroSeconds by remember { skipOutroSecondsStore.data }.collectAsState(initial = 0)
     val gridMode by remember { gridModeStore.data }.collectAsState(initial = GridMode.GRID)
     val autoSleepTimer by remember { sleepTimerPreferenceStore.data }.collectAsState(
       initial = SleepTimerPreference.Default,
@@ -92,6 +101,8 @@ class SettingsViewModel(
       themeColorScheme = themeColorScheme,
       showThemeColorSchemePref = showThemeColorSchemePref,
       seekTimeInSeconds = seekTime,
+      skipIntroInSeconds = skipIntroSeconds.coerceToIntroOutroSkipSeconds(),
+      skipOutroInSeconds = skipOutroSeconds.coerceToIntroOutroSkipSeconds(),
       autoRewindInSeconds = autoRewindAmount,
       dialog = dialog.value,
       appVersion = appInfoProvider.versionName,
@@ -163,6 +174,26 @@ class SettingsViewModel(
 
   override fun onSeekAmountRowClick() {
     dialog.value = SettingsViewState.Dialog.SeekTime
+  }
+
+  override fun skipIntroAmountChanged(seconds: Int) {
+    mainScope.launch {
+      skipIntroSecondsStore.updateData { seconds.coerceToIntroOutroSkipSeconds() }
+    }
+  }
+
+  override fun onSkipIntroRowClick() {
+    dialog.value = SettingsViewState.Dialog.SkipIntro
+  }
+
+  override fun skipOutroAmountChanged(seconds: Int) {
+    mainScope.launch {
+      skipOutroSecondsStore.updateData { seconds.coerceToIntroOutroSkipSeconds() }
+    }
+  }
+
+  override fun onSkipOutroRowClick() {
+    dialog.value = SettingsViewState.Dialog.SkipOutro
   }
 
   override fun autoRewindAmountChang(seconds: Int) {

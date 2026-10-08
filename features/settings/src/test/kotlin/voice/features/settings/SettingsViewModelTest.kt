@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import voice.core.common.AppInfoProvider
 import voice.core.common.DispatcherProvider
@@ -37,6 +38,8 @@ class SettingsViewModelTest {
   private val themeColorSchemeStore = MemoryDataStore(ThemeColorScheme.VoiceBlue)
   private val autoRewindAmountStore = MemoryDataStore(10)
   private val seekTimeStore = MemoryDataStore(30)
+  private val skipIntroSecondsStore = MemoryDataStore(0)
+  private val skipOutroSecondsStore = MemoryDataStore(0)
   private val gridModeStore = MemoryDataStore(GridMode.GRID)
   private val sleepTimerPreferenceStore = MemoryDataStore(SleepTimerPreference.Default)
   private val analyticsConsentStore = MemoryDataStore(false)
@@ -63,6 +66,8 @@ class SettingsViewModelTest {
     themeColorSchemeStore = themeColorSchemeStore,
     autoRewindAmountStore = autoRewindAmountStore,
     seekTimeStore = seekTimeStore,
+    skipIntroSecondsStore = skipIntroSecondsStore,
+    skipOutroSecondsStore = skipOutroSecondsStore,
     navigator = navigator,
     appInfoProvider = appInfoProvider,
     gridModeStore = gridModeStore,
@@ -227,11 +232,115 @@ class SettingsViewModelTest {
       }
     }
   }
+
+  @Test
+  fun `skip settings default to zero and follow store updates`() = scope.runTest {
+    backgroundScope.launchMolecule(RecompositionMode.Immediate) {
+      viewModel.viewState()
+    }.test {
+      awaitItem().let {
+        assertEquals(expected = 0, actual = it.skipIntroInSeconds)
+        assertEquals(expected = 0, actual = it.skipOutroInSeconds)
+      }
+
+      skipIntroSecondsStore.updateData { 30 }
+      skipOutroSecondsStore.updateData { 15 }
+
+      awaitItem().let {
+        assertEquals(expected = 30, actual = it.skipIntroInSeconds)
+        assertEquals(expected = 15, actual = it.skipOutroInSeconds)
+      }
+    }
+  }
+
+  @Test
+  fun `skip settings normalize out of range store values`() = scope.runTest {
+    skipIntroSecondsStore.updateData { -5 }
+    skipOutroSecondsStore.updateData { 400 }
+
+    backgroundScope.launchMolecule(RecompositionMode.Immediate) {
+      viewModel.viewState()
+    }.test {
+      var state = awaitItem()
+      while (state.skipIntroInSeconds != 0 || state.skipOutroInSeconds != 120) {
+        state = awaitItem()
+      }
+    }
+  }
+
+  @Test
+  fun `skip rows open their own dialog`() = scope.runTest {
+    backgroundScope.launchMolecule(RecompositionMode.Immediate) {
+      viewModel.viewState()
+    }.test {
+      assertEquals(expected = null, actual = awaitItem().dialog)
+
+      viewModel.onSkipIntroRowClick()
+      assertEquals(expected = SettingsViewState.Dialog.SkipIntro, actual = awaitItem().dialog)
+
+      viewModel.dismissDialog()
+      assertEquals(expected = null, actual = awaitItem().dialog)
+
+      viewModel.onSkipOutroRowClick()
+      assertEquals(expected = SettingsViewState.Dialog.SkipOutro, actual = awaitItem().dialog)
+
+      viewModel.dismissDialog()
+      assertEquals(expected = null, actual = awaitItem().dialog)
+    }
+  }
+
+  @Test
+  fun `saving skip intro only updates the intro store`() = scope.runTest {
+    backgroundScope.launchMolecule(RecompositionMode.Immediate) {
+      viewModel.viewState()
+    }.test {
+      awaitItem()
+
+      viewModel.skipIntroAmountChanged(120)
+
+      awaitItem().let {
+        assertEquals(expected = 120, actual = it.skipIntroInSeconds)
+        assertEquals(expected = 0, actual = it.skipOutroInSeconds)
+      }
+      assertEquals(expected = 120, actual = skipIntroSecondsStore.currentValue)
+      assertEquals(expected = 0, actual = skipOutroSecondsStore.currentValue)
+    }
+  }
+
+  @Test
+  fun `saving skip outro only updates the outro store`() = scope.runTest {
+    backgroundScope.launchMolecule(RecompositionMode.Immediate) {
+      viewModel.viewState()
+    }.test {
+      awaitItem()
+
+      viewModel.skipOutroAmountChanged(90)
+
+      awaitItem().let {
+        assertEquals(expected = 0, actual = it.skipIntroInSeconds)
+        assertEquals(expected = 90, actual = it.skipOutroInSeconds)
+      }
+      assertEquals(expected = 0, actual = skipIntroSecondsStore.currentValue)
+      assertEquals(expected = 90, actual = skipOutroSecondsStore.currentValue)
+    }
+  }
+
+  @Test
+  fun `saving skip values clamps them to the supported range`() = scope.runTest {
+    viewModel.skipIntroAmountChanged(-10)
+    viewModel.skipOutroAmountChanged(301)
+    runCurrent()
+
+    assertEquals(expected = 0, actual = skipIntroSecondsStore.currentValue)
+    assertEquals(expected = 120, actual = skipOutroSecondsStore.currentValue)
+  }
 }
 
 private class MemoryDataStore<T>(initial: T) : DataStore<T> {
 
   private val value = MutableStateFlow(initial)
+
+  val currentValue: T get() = value.value
 
   override val data: Flow<T> get() = value
 
