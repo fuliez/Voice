@@ -159,6 +159,19 @@ class MediaScannerTest {
   }
 
   @Test
+  fun scanSingleFolderWithManyChapters() = test {
+    val folder = folder("book")
+    val book = (1..12).map { index ->
+      audioFile(parent = folder, "chapter ${index.toString().padStart(2, '0')}.mp3")
+    }
+
+    scan(FolderType.SingleFolder, folder)
+
+    assertBookContents(BookContentView(folder, chapters = book))
+    assertEquals(expected = 12, actual = analyzeCalls)
+  }
+
+  @Test
   fun newBookReusesFirstChapterMetadata() = test {
     val folder = folder("book")
     audioFile(parent = folder, "1.mp3")

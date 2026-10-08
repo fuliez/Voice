@@ -7,6 +7,7 @@ import androidx.media3.common.FileTypes
 import androidx.media3.common.MediaItem
 import androidx.media3.container.MdtaMetadataEntry
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.TrackGroupArray
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.metadata.id3.ChapterFrame
@@ -35,25 +36,55 @@ internal class MediaAnalyzer(
   private val matroskaExtractorFactory: MatroskaMetaDataExtractor.Factory,
 ) {
 
-  // we use a custom MediaSourceFactory because the default one for the
-  // retriever also extracts the covers
-  private val mediaSourceFactory = DefaultMediaSourceFactory(
+  // We use a custom MediaSourceFactory because the default one for the
+  // retriever also extracts the covers.
+  // A factory caches its delegates in unsynchronized maps, so every analysis gets its own now that
+  // several files are analyzed at the same time.
+  private fun mediaSourceFactory(): MediaSource.Factory = DefaultMediaSourceFactory(
     context,
     DefaultExtractorsFactory(),
   )
 
   suspend fun analyze(file: CachedDocumentFile): Metadata? {
     val builder = Metadata.Builder(file.nameWithoutExtension())
-    val duration = retrieveDuration(file.uri)
-      ?: return null
-    if (duration <= Duration.ZERO) {
-      Logger.w("Duration is zero or negative for file: ${file.uri}")
-      return null
+    return try {
+      MetadataRetriever.Builder(context, MediaItem.fromUri(file.uri))
+        .setMediaSourceFactory(mediaSourceFactory())
+        .build()
+        .use { retriever ->
+          // Duration and track groups are both served by a single preparation of the media source,
+          // so reading them through one retriever avoids preparing every file twice.
+          val duration = retriever.retrieveDurationUs().await().microseconds
+          if (duration <= Duration.ZERO) {
+            Logger.w("Duration is zero or negative for file: ${file.uri}")
+            return null
+          }
+
+          val trackGroups = retriever.retrieveTrackGroups().await()
+          visitTrackGroups(trackGroups, builder)
+
+          val fileType = FileTypes.inferFileTypeFromUri(file.uri)
+          val extension = (file.name ?: "").substringAfterLast(delimiter = ".", missingDelimiterValue = "").lowercase()
+          if (fileType == FileTypes.MP4 || extension == "mp4" || extension == "m4a" || extension == "m4b") {
+            parseMp4Chapters(file, builder)
+          }
+          if (fileType == FileTypes.MATROSKA || extension == "mka" || extension == "mkv") {
+            parseMatroskaMetaData(file, builder)
+          }
+
+          builder.build(duration)
+        }
+    } catch (e: Exception) {
+      if (e is CancellationException) currentCoroutineContext().ensureActive()
+      Logger.w(e, "Error retrieving metadata")
+      null
     }
+  }
 
-    val trackGroups = retrieveMetadata(file.uri)
-      ?: return null
-
+  private fun visitTrackGroups(
+    trackGroups: TrackGroupArray,
+    builder: Metadata.Builder,
+  ) {
     repeat(trackGroups.length) { trackGroupsIndex ->
       val trackGroup = trackGroups[trackGroupsIndex]
       if (trackGroup.type == C.TRACK_TYPE_AUDIO) {
@@ -73,17 +104,6 @@ internal class MediaAnalyzer(
         }
       }
     }
-
-    val fileType = FileTypes.inferFileTypeFromUri(file.uri)
-    val extension = (file.name ?: "").substringAfterLast(delimiter = ".", missingDelimiterValue = "").lowercase()
-    if (fileType == FileTypes.MP4 || extension == "mp4" || extension == "m4a" || extension == "m4b") {
-      parseMp4Chapters(file, builder)
-    }
-    if (fileType == FileTypes.MATROSKA || extension == "mka" || extension == "mkv") {
-      parseMatroskaMetaData(file, builder)
-    }
-
-    return builder.build(duration)
   }
 
   private fun parseMatroskaMetaData(
@@ -192,36 +212,6 @@ internal class MediaAnalyzer(
       }
       "TRCK", "TYER", "TSSE" -> {}
       else -> Logger.v("Unknown frame ID: ${entry.id}, value: $value")
-    }
-  }
-
-  private suspend fun retrieveMetadata(uri: Uri): TrackGroupArray? {
-    return try {
-      MetadataRetriever.Builder(context, MediaItem.fromUri(uri))
-        .setMediaSourceFactory(mediaSourceFactory)
-        .build()
-        .use {
-          it.retrieveTrackGroups().await()
-        }
-    } catch (e: Exception) {
-      if (e is CancellationException) currentCoroutineContext().ensureActive()
-      Logger.w(e, "Error retrieving metadata")
-      null
-    }
-  }
-
-  private suspend fun retrieveDuration(uri: Uri): Duration? {
-    return try {
-      MetadataRetriever.Builder(context, MediaItem.fromUri(uri))
-        .setMediaSourceFactory(mediaSourceFactory)
-        .build()
-        .use {
-          it.retrieveDurationUs().await().microseconds
-        }
-    } catch (e: Exception) {
-      if (e is CancellationException) currentCoroutineContext().ensureActive()
-      Logger.w(e, "Error retrieving metadata")
-      null
     }
   }
 }
