@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import voice.core.analytics.api.Analytics
@@ -131,6 +132,11 @@ class VoicePlayer(
     ) {
       updateOutroCheckJob()
     }
+
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+      checkIntroOutroSkipWhilePlaying()
+      updateOutroCheckJob()
+    }
   }
 
   init {
@@ -162,31 +168,44 @@ class VoicePlayer(
   }
 
   private fun updateOutroCheckJob() {
-    val outroMs = skipConfig.value?.outroMs ?: 0L
-    val shouldRun = outroMs > 0L &&
-      player.playWhenReady &&
-      player.playbackState == Player.STATE_READY &&
-      player.currentMediaItemIndex != C.INDEX_UNSET
-    val running = outroCheckJob?.isActive == true
-    if (!shouldRun) {
-      if (running) {
-        outroCheckJob?.cancel()
-        outroCheckJob = null
-      }
+    if (!shouldRunOutroChecks()) {
+      outroCheckJob?.cancel()
+      outroCheckJob = null
       return
     }
-    if (running) return
+    if (outroCheckJob?.isActive == true) return
     outroCheckJob = scope.launch {
-      while (true) {
+      while (isActive && shouldRunOutroChecks()) {
         delay(INTRO_OUTRO_CHECK_INTERVAL_MS)
-        if (!player.playWhenReady || player.playbackState != Player.STATE_READY) break
+        // Playback can stop, get suppressed or lose its outro while waiting, so the state is read
+        // again before anything is applied.
+        if (!shouldRunOutroChecks()) break
         applyIntroOutroSkip()
       }
     }
   }
 
+  /**
+   * Whether the periodic outro check should run.
+   *
+   * This reads the actual playback of the underlying player instead of the play intent, so a player
+   * that is suppressed while keeping its play intent neither polls the position nor reacts to
+   * setting changes.
+   */
+  private fun shouldRunOutroChecks(): Boolean {
+    return (skipConfig.value?.outroMs ?: 0L) > 0L &&
+      player.isPlaying &&
+      player.currentMediaItemIndex != C.INDEX_UNSET
+  }
+
+  /**
+   * Applies the skip for ordinary playback events. Only runs while audio is actually playing.
+   *
+   * The explicit correction before a user requested playback start goes through
+   * [applyIntroOutroSkip] directly instead.
+   */
   private fun checkIntroOutroSkipWhilePlaying() {
-    if (!player.playWhenReady) return
+    if (!player.isPlaying) return
     applyIntroOutroSkip()
   }
 
@@ -291,10 +310,22 @@ class VoicePlayer(
     book: Book,
     chapter: Chapter,
   ) {
-    if (outroSkippedChapterId == chapter.id) return
     val last = book.playbackItems().lastOrNull() ?: return
+    val target = SkipTarget(mediaItemIndex = last.index, positionMs = last.mark.durationMs)
+    // The mark only says that this file was finished before, which is not the same as the position
+    // still being at its end. Without both conditions the outro could play after seeking back into
+    // it without reloading the book.
+    if (outroSkippedChapterId == chapter.id && isAtFinalEnd(target)) return
+    // Record before seeking, because the seek reports a position callback.
     outroSkippedChapterId = chapter.id
-    player.seekTo(last.index, last.mark.durationMs)
+    player.seekTo(target.mediaItemIndex, target.positionMs)
+  }
+
+  private fun isAtFinalEnd(target: SkipTarget): Boolean {
+    val positionMs = player.currentPosition
+    return player.currentMediaItemIndex == target.mediaItemIndex &&
+      positionMs >= 0L &&
+      abs(positionMs - target.positionMs) <= FINAL_END_POSITION_TOLERANCE_MS
   }
 
   private fun isAt(target: SkipTarget): Boolean {
@@ -623,3 +654,11 @@ private const val THRESHOLD_FOR_BACK_SEEK_MS = 2000
 
 /** Endpoint positions can differ by this much because playback items are clipped to whole microseconds. */
 private const val END_POSITION_TOLERANCE_MS = 1L
+
+/**
+ * Tolerance for deciding that the last file of a book is already at its end.
+ *
+ * Kept separate from [END_POSITION_TOLERANCE_MS] because that one also deduplicates intro and other
+ * jumps, which must not be widened.
+ */
+private const val FINAL_END_POSITION_TOLERANCE_MS = 5L
